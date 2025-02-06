@@ -208,32 +208,51 @@ fn close_program_wsol<'info>(
     ))
 }
 
-
 /// Function to transfer acquired meme tokens to user
 fn transfer_meme_tokens<'info>(
     program_authority: SystemAccount<'info>,
-    meme_token_account: UncheckedAccount<'info>,
-    user_account: Signer<'info>,
+    meme_token_account: Account<'info, TokenAccount>, // Updated type to use TokenAccount
+    user_token_account: Account<'info, TokenAccount>, // User's token account to receive the tokens
     token_program: Program<'info, Token>,
     authority_bump: &[u8],
 ) -> Result<()> {
+    // Fetch the balance of the program's temporary token account (meme_token_account)
+    let meme_token_balance = meme_token_account.amount;
+
+    // Ensure there are tokens to transfer
+    require!(meme_token_balance > 0, ErrorCode::SwapFailed);
+
+    // Transfer the full balance to the user's token account
     let signer_seeds: &[&[&[u8]]] = &[&[AUTHORITY_SEED, authority_bump.as_ref()]];
-    token::transfer(CpiContext::new_with_signer(
-        token_program.to_account_info(),
-        token::Transfer {
-            from: meme_token_account.to_account_info(),
-            to: user_account.to_account_info(),
-            authority: program_authority.to_account_info(),
-        },
-        signer_seeds,
-    ), 1_000_000)?; // Transfer the acquired meme tokens
+    token::transfer(
+        CpiContext::new_with_signer(
+            token_program.to_account_info(),
+            token::Transfer {
+                from: meme_token_account.to_account_info(), // Source: program's temporary token account
+                to: user_token_account.to_account_info(),  // Destination: user's token account
+                authority: program_authority.to_account_info(),
+            },
+            signer_seeds,
+        ),
+        meme_token_balance, // Transfer the meme token balance
+    )?;
+
     Ok(())
 }
 
 
-
-
 #[derive(Accounts)]
-pub struct Initialize {}
+pub struct SolToMemeSwap<'info> {
+    #[account(mut, seeds = [AUTHORITY_SEED], bump)]
+    pub program_authority: SystemAccount<'info>,
+    #[account(mut, seeds = [WSOL_SEED], bump)]
+    pub program_wsol_account: UncheckedAccount<'info>,
+    pub user_account: Signer<'info>,
+    #[account(address = spl_token::native_mint::id())]
+    pub sol_mint: Account<'info, Mint>,
+    pub jupiter_program: Program<'info, Jupiter>,
+    pub token_program: Program<'info, Token>,
+    pub system_program: Program<'info, System>,
+}
 
 
