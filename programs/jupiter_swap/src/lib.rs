@@ -61,6 +61,46 @@ pub mod jupiter_swap {
             &wsol_bump,
         )?;
 
+        /*Approach used for remaining accounts is to be preferred because it allows us to use dynamic meme coins instead of hardcoding them wrt 
+        their length as well as their selecection */
+        msg!("Swapping SOL into three different meme tokens via Jupiter...");
+        for i in 0..3 {
+            //The remaining_accounts array allows users to pass any arbitrary set of accounts during program execution.
+            let meme_coin = ctx.remaining_accounts[i].clone(); // Meme token mint accounts
+            swap_on_jupiter(
+                &ctx.remaining_accounts,
+                ctx.accounts.jupiter_program.clone(),
+                data.clone(),
+                sol_split,
+                meme_coin,
+            )?;
+        }
+        /*Wrapped SOL is used only for the Jupiter swap because Jupiter supports token swaps (not native SOL). 
+        Once the swaps are complete, the wSOL account is no longer needed.*/
+        msg!("Closing wSOL account...");
+        close_program_wsol(
+            ctx.accounts.program_authority.clone(),
+            ctx.accounts.program_wsol_account.clone(),
+            ctx.accounts.token_program.clone(),
+            &authority_bump,
+        )?;
+
+        /* The final step was to trasfer that swapped meme Tokens to the user */
+        msg!("Swaps complete! Transferring meme tokens to user...");
+        for i in 0..3 {
+            let meme_token_account = ctx.remaining_accounts[i + 3].clone(); // Meme token accounts
+            transfer_meme_tokens(
+                ctx.accounts.program_authority.clone(),
+                meme_token_account,
+                ctx.accounts.user_account.clone(),
+                ctx.accounts.token_program.clone(),
+                &authority_bump,
+            )?;
+        }
+
+
+
+
         Ok(())
     }
 }
