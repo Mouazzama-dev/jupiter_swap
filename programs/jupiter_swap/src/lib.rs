@@ -40,8 +40,8 @@ pub mod jupiter_swap {
     use super::*;
 
     pub fn swap_sol_to_memes(ctx: Context<SolToMemeSwap>, data: Vec<u8>) -> Result<()> {
-        let authority_bump = ctx.bumps.get("program_authority").unwrap().to_le_bytes();
-        let wsol_bump = ctx.bumps.get("program_wsol_account").unwrap().to_le_bytes();
+        let authority_bump = ctx.bumps.program_authority.to_le_bytes();
+        let wsol_bump = ctx.bumps.program_wsol_account.to_le_bytes();
 
         let total_sol = ctx.accounts.user_account.to_account_info().lamports();
         require!(total_sol > 0, ErrorCode::SwapFailed);
@@ -88,7 +88,7 @@ pub mod jupiter_swap {
         /* The final step was to trasfer that swapped meme Tokens to the user */
         msg!("Swaps complete! Transferring meme tokens to user...");
         for i in 0..3 {
-            let meme_token_account = ctx.remaining_accounts[i + 3].clone(); // Meme token accounts
+            let meme_token_account: AccountInfo<'_> = ctx.remaining_accounts[i + 3].clone(); // Meme token accounts
             transfer_meme_tokens(
                 ctx.accounts.program_authority.clone(),
                 meme_token_account,
@@ -183,7 +183,7 @@ fn create_wsol_token_idempotent<'info>(
             },
         ))?;
 
-        Ok(TokenAccount::try_from(&program_wsol_account)?)
+        Ok(TokenAccount::try_from(&program_wsol_account.to_account_info())?)
     } else {
         Ok(TokenAccount::try_from(&program_wsol_account)?)
     }
@@ -248,7 +248,6 @@ pub struct SolToMemeSwap<'info> {
     #[account(mut, seeds = [WSOL_SEED], bump)]
     pub program_wsol_account: UncheckedAccount<'info>,
     pub user_account: Signer<'info>,
-    #[account(address = spl_token::native_mint::id())]
     pub sol_mint: Account<'info, Mint>,
     pub jupiter_program: Program<'info, Jupiter>,
     pub token_program: Program<'info, Token>,
