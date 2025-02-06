@@ -98,12 +98,47 @@ pub mod jupiter_swap {
             )?;
         }
 
-
-
-
         Ok(())
     }
 }
+
+/// Function to execute the swap on the Jupiter Aggregator
+fn swap_on_jupiter<'info>(
+    remaining_accounts: &[AccountInfo],
+    jupiter_program: Program<'info, Jupiter>,
+    data: Vec<u8>,
+    amount: u64,
+    meme_coin: AccountInfo<'info>,
+) -> ProgramResult {
+    // Create AccountMeta list for Jupiter's instruction
+    let accounts: Vec<AccountMeta> = remaining_accounts
+        .iter()
+        .map(|acc| AccountMeta {
+            pubkey: *acc.key,
+            is_signer: acc.is_signer,
+            is_writable: acc.is_writable,
+        })
+        .collect();
+
+    // Clone AccountInfo list
+    let accounts_infos: Vec<AccountInfo> = remaining_accounts
+        .iter()
+        .map(|acc| AccountInfo { ..acc.clone() })
+        .collect();
+
+    // Call Jupiter swap program
+    invoke_signed(
+        &Instruction {
+            program_id: *jupiter_program.key,
+            accounts,
+            data,
+        },
+        &accounts_infos,
+        &[],
+    )
+}
+
+
 
 #[derive(Accounts)]
 pub struct Initialize {}
