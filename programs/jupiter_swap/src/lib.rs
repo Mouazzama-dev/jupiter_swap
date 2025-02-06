@@ -209,6 +209,28 @@ fn close_program_wsol<'info>(
 }
 
 
+/// Function to transfer acquired meme tokens to user
+fn transfer_meme_tokens<'info>(
+    program_authority: SystemAccount<'info>,
+    meme_token_account: UncheckedAccount<'info>,
+    user_account: Signer<'info>,
+    token_program: Program<'info, Token>,
+    authority_bump: &[u8],
+) -> Result<()> {
+    let signer_seeds: &[&[&[u8]]] = &[&[AUTHORITY_SEED, authority_bump.as_ref()]];
+    token::transfer(CpiContext::new_with_signer(
+        token_program.to_account_info(),
+        token::Transfer {
+            from: meme_token_account.to_account_info(),
+            to: user_account.to_account_info(),
+            authority: program_authority.to_account_info(),
+        },
+        signer_seeds,
+    ), 1_000_000)?; // Transfer the acquired meme tokens
+    Ok(())
+}
+
+
 
 
 #[derive(Accounts)]
