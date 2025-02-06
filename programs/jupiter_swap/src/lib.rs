@@ -139,6 +139,77 @@ fn swap_on_jupiter<'info>(
 }
 
 
+/// Function to create wSOL token account (if not already created)
+fn create_wsol_token_idempotent<'info>(
+    program_authority: SystemAccount<'info>,
+    program_wsol_account: UncheckedAccount<'info>,
+    sol_mint: Account<'info, Mint>,
+    token_program: Program<'info, Token>,
+    system_program: Program<'info, System>,
+    authority_bump: &[u8],
+    wsol_bump: &[u8],
+) -> Result<TokenAccount> {
+    if program_wsol_account.data_is_empty() {
+        let signer_seeds: &[&[&[u8]]] = &[
+            &[AUTHORITY_SEED, authority_bump.as_ref()],
+            &[WSOL_SEED, wsol_bump.as_ref()],
+        ];
+
+        msg!("Initialize program wSOL account");
+        let rent = Rent::get()?;
+        let space = TokenAccount::LEN;
+        let lamports = rent.minimum_balance(space);
+        system_program::create_account(
+            CpiContext::new_with_signer(
+                system_program.to_account_info(),
+                system_program::CreateAccount {
+                    from: program_authority.to_account_info(),
+                    to: program_wsol_account.to_account_info(),
+                },
+                signer_seeds,
+            ),
+            lamports,
+            space as u64,
+            token_program.key,
+        )?;
+
+        msg!("Initialize program wSOL token account");
+        token::initialize_account3(CpiContext::new(
+            token_program.to_account_info(),
+            token::InitializeAccount3 {
+                account: program_wsol_account.to_account_info(),
+                mint: sol_mint.to_account_info(),
+                authority: program_authority.to_account_info(),
+            },
+        ))?;
+
+        Ok(TokenAccount::try_from(&program_wsol_account)?)
+    } else {
+        Ok(TokenAccount::try_from(&program_wsol_account)?)
+    }
+}
+
+/// Function to close wSOL account after swap
+fn close_program_wsol<'info>(
+    program_authority: SystemAccount<'info>,
+    program_wsol_account: UncheckedAccount<'info>,
+    token_program: Program<'info, Token>,
+    authority_bump: &[u8],
+) -> Result<()> {
+    let signer_seeds: &[&[&[u8]]] = &[&[AUTHORITY_SEED, authority_bump.as_ref()]];
+    token::close_account(CpiContext::new_with_signer(
+        token_program.to_account_info(),
+        token::CloseAccount {
+            account: program_wsol_account.to_account_info(),
+            destination: program_authority.to_account_info(),
+            authority: program_authority.to_account_info(),
+        },
+        signer_seeds,
+    ))
+}
+
+
+
 
 #[derive(Accounts)]
 pub struct Initialize {}
